@@ -1,0 +1,85 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  room      String    // ถ้า Admin ไม่มีห้อง อาจจะใส่เป็น "OFFICE" หรือแก้เป็น String? (Optional) ก็ได้
+  phone     String?
+  email     String?   @unique
+  password  String?
+  status    String    @default("ACTIVE") // ACTIVE, INACTIVE
+  
+  role      String    @default("user")   // <-- เพิ่มบรรทัดนี้! (user, admin)
+
+  bills     Bill[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([room])
+  @@index([status])
+}
+
+// ... Model Bill และ Payment เหมือนเดิม ...
+model Bill {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  month     String    
+  rent      Float
+  water     Float
+  electric  Float
+  total     Float
+  status    String    @default("PENDING") 
+  payments  Payment[]
+  dueDate   DateTime?
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, month])
+  @@index([userId])
+  @@index([status])
+  @@index([month])
+}
+
+model Payment {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  billId        String    @db.ObjectId
+  bill          Bill      @relation(fields: [billId], references: [id], onDelete: Cascade)
+  slipUrl       String    
+  slipPublicId  String?   
+  ocrText       String?   
+  note          String?   
+  amount        Float?    
+  status        String    @default("PENDING") 
+  verifiedAt    DateTime? 
+  verifiedBy    String?   
+  rejectReason  String?   
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([billId])
+  @@index([status])
+}
+
+// Model Admin อาจจะไม่จำเป็นแล้วถ้าเราใช้ User + role="admin" แทน
+// แต่ถ้าอยากเก็บไว้ก็ไม่เป็นไรครับ
+model Admin {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  username  String    @unique
+  email     String    @unique
+  password  String   
+  name      String
+  role      String    @default("ADMIN") 
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
